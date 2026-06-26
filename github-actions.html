@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GitHub Actions | DevOps Learning Portal</title>
+  <!-- Favicons -->
+  <link href="img/apple-touch-icon.png" rel="apple-touch-icon">
+  
+  <!-- Google Fonts -->
+  <link href="img/favicon.png" rel="icon">
+  <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,500,700" rel="stylesheet">
+
+  <!-- Bootstrap CSS File -->
+  <link href="lib/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Libraries CSS Files -->
+  <link href="lib/font-awesome/css/font-awesome.min.css" rel="stylesheet">
+
+  <!-- Main Stylesheet File -->
+  <link href="css/style.css" rel="stylesheet">
+
+
+
+</head>
+<body>
+
+  <div class="navbar navbar-inverse navbar-static-top">
+    <div class="container">
+      <div class="navbar-header">
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="index.html">Manideep Tangallapally</a>
+      </div>
+      <div class="navbar-collapse collapse">
+        <ul class="nav navbar-nav navbar-right">
+          <li><a href="work.html">Work</a></li>
+          <li><a href="about.html">About</a></li>
+          <li><a href="blog.html">Blog</a></li>
+          <li><a href="contact.html">Contact</a></li>
+          <li><a href="learning.html">Learning</a></li>
+        </ul>
+      </div>
+      <!--/.nav-collapse -->
+    </div>
+  </div>
+
+<div class="site-shell">
+<aside class="sidebar">
+<div class="brand"><strong>DevOps Learning Portal</strong><span>CI/CD + GitOps + Monitoring</span></div>
+<nav class="nav">
+<a class="home" href="index.html">Home</a>
+<a href="git.html">Git and GitHub</a>
+<a href="docker.html">Docker</a>
+<a href="kubernetes.html">Kubernetes</a>
+<a class="active" href="github-actions.html">GitHub Actions</a>
+<a href="github-runners.html">GitHub Runners</a>
+<a href="argocd.html">ArgoCD</a>
+<a href="prometheus.html">Prometheus</a>
+<a href="grafana.html">Grafana</a>
+</nav>
+</aside>
+<div class="content">
+<header class="hero">
+<h1>GitHub Actions</h1>
+<p>Automation that turns repository events into tested, built, published artifacts.</p>
+</header>
+<main>
+<section>
+<h2>How This Fits Our End-to-End Pipeline</h2>
+<p>GitHub Actions is documented here as part of one connected build, not as an isolated tutorial. The goal is to explain how code moved from a developer laptop into a monitored Kubernetes service.</p>
+<pre><code>Developer laptop
+  | git add / commit / push
+  v
+GitHub repository
+  | pull request + branch rules
+  v
+GitHub Actions workflow
+  | test -&gt; docker build -&gt; tag -&gt; push
+  v
+Docker Hub image registry
+  | immutable image tag
+  v
+GitOps manifests repository/path
+  | ArgoCD watches desired state
+  v
+Kubernetes cluster
+  | app pods + services + ingress
+  v
+Prometheus scrapes metrics -&gt; Grafana dashboards</code></pre>
+</section>
+<section>
+<h2>Theory</h2>
+<p>GitHub Actions automates work triggered by repository events. For our pipeline, it runs tests, builds the Docker image, pushes it to Docker Hub, and updates Kubernetes manifests with the new image tag.</p>
+<p>The workflow is CI when it validates and builds. It becomes part of CD when it publishes deployable artifacts or changes GitOps manifests that ArgoCD will sync.</p>
+</section>
+<section>
+<h2>Workflow Architecture</h2>
+<pre><code>push / pull_request
+      |
+      v
+.github/workflows/ci.yml
+      |
+      +-- checkout code
+      +-- install dependencies
+      +-- test / lint
+      +-- docker login
+      +-- docker build and push
+      +-- update k8s image tag
+      +-- commit manifest change</code></pre>
+</section>
+<section>
+<h2>Implementation</h2>
+<pre><code>name: ci-cd
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set image tag
+        run: echo "IMAGE_TAG=sha-${GITHUB_SHA::7}" &gt;&gt; "$GITHUB_ENV"
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/devops-demo:${{ env.IMAGE_TAG }}</code></pre>
+</section>
+<section>
+<h2>Manifest Update Pattern</h2>
+<pre><code># Example idea used after docker push
+# Replace image tag in k8s manifest, then commit the change
+sed -i 's|image: .*|image: dockerhub-user/devops-demo:sha-9f3a21c|' k8s/staging/deployment.yaml
+git add k8s/staging/deployment.yaml
+git commit -m 'Deploy image sha-9f3a21c'
+git push</code></pre>
+</section>
+<section>
+<h2>Secrets</h2>
+<ul>
+<li><code>DOCKERHUB_USERNAME</code> stores the registry namespace.</li>
+<li><code>DOCKERHUB_TOKEN</code> stores a Docker Hub access token, not the account password.</li>
+<li>Secrets are referenced in workflows using <code>${{ secrets.NAME }}</code>.</li>
+<li>Environment secrets can separate staging and production credentials.</li>
+</ul>
+</section>
+<section>
+<h2>Commands and Files</h2>
+<h3>Create workflow folder</h3>
+<pre><code>mkdir -p .github/workflows</code></pre>
+<p>The conventional location for GitHub Actions workflow YAML.</p>
+<h3>Validate by push</h3>
+<pre><code>git add .github/workflows/ci.yml
+git commit -m "Add CI workflow"
+git push</code></pre>
+<p>The workflow runs after GitHub receives the commit.</p>
+<h3>Check runs</h3>
+<pre><code>gh run list
+gh run view --log</code></pre>
+<p>Useful when the GitHub CLI is installed and authenticated.</p>
+</section>
+<section>
+<h2>Quality Gates</h2>
+<ul>
+<li>Run tests on every pull request.</li>
+<li>Build images only after tests pass.</li>
+<li>Push images only from trusted branches.</li>
+<li>Require approvals for production environments.</li>
+</ul>
+</section>
+<section>
+<h2>Interview Notes</h2>
+<ul>
+<li>A workflow contains jobs; jobs contain steps; steps run shell commands or actions.</li>
+<li>Hosted runners are convenient; self-hosted runners are useful for private networks or custom tooling.</li>
+<li>Use least-privilege workflow permissions rather than broad repository write access everywhere.</li>
+<li>Do not deploy from pull request workflows that can be triggered by untrusted code.</li>
+<li>Artifacts, caches, and Docker layers solve different performance and handoff problems.</li>
+</ul>
+</section>
+<section>
+<h2>FAQs</h2>
+<h3>Why did we update manifests instead of kubectl applying directly?</h3>
+<p>Because the GitOps model lets ArgoCD deploy from Git, preserving review history and drift detection.</p>
+<h3>Can one workflow handle CI and CD?</h3>
+<p>Yes for a learning project, but teams often split validation, release, and deployment workflows as complexity grows.</p>
+<h3>What breaks most often?</h3>
+<p>Secrets, image tags, registry permissions, YAML indentation, and missing workflow permissions.</p>
+</section>
+<section>
+<h2>Memorize vs Look-up</h2>
+<div class="card-grid">
+<div class="card"><h3>Memorize</h3>
+<ul>
+<li>Workflow, job, step, action, runner, secret, environment.</li>
+<li>Common events: <code>push</code>, <code>pull_request</code>, <code>workflow_dispatch</code>.</li>
+<li>Use commit SHA tags for traceable images.</li>
+</ul>
+</div>
+<div class="card"><h3>Look Up</h3>
+<ul>
+<li>Every action version and marketplace input.</li>
+<li>Complex expression syntax.</li>
+<li>Matrix strategy edge cases.</li>
+</ul>
+</div>
+</div>
+</section>
+<section>
+<h2>Project Implementation Journal</h2>
+<h3>Baseline</h3>
+<p>We first made sure the application or configuration worked before introducing GitHub Actions. A broken baseline makes every later automation failure harder to understand.</p>
+<h3>Local proof</h3>
+<p>We validated the GitHub Actions workflow locally where possible, because local feedback is faster than waiting for CI or a cluster reconciliation loop.</p>
+<h3>Repository proof</h3>
+<p>We committed the GitHub Actions change as a reviewable unit so the reason for the pipeline change was visible in Git history.</p>
+<h3>Automation handoff</h3>
+<p>We connected GitHub Actions to the next tool in the chain instead of treating it as a standalone exercise.</p>
+<h3>Failure check</h3>
+<p>We intentionally inspected the common failure signals for GitHub Actions: logs, status output, permissions, names, tags, and configuration paths.</p>
+<h3>Rollback thinking</h3>
+<p>We asked how to return to the previous working state if the GitHub Actions change caused a bad deployment.</p>
+<h3>Interview compression</h3>
+<p>We reduced GitHub Actions into a few sentences that explain purpose, implementation, and failure modes clearly.</p>
+<h3>Operations note</h3>
+<p>We documented what someone should check the day after the deployment, not only what to run during setup.</p>
+</section>
+<section>
+<h2>Decision Records</h2>
+<ul>
+<li>Keep GitHub Actions configuration in Git where it can be reviewed.</li>
+<li>Prefer explicit names over clever names: repository, image, namespace, workflow, and application names should be searchable.</li>
+<li>Use immutable versions for anything that can be deployed or rolled back.</li>
+<li>Put secrets in the platform secret store, not in code, documentation screenshots, or shell history.</li>
+<li>Automate only after the manual path is understood.</li>
+<li>Make the happy path visible, then document the first five things to check when it fails.</li>
+<li>Separate staging and production concerns before the project becomes too large.</li>
+<li>Choose boring defaults unless there is a real operational reason to customize.</li>
+<li>Write commands so they can be pasted into a terminal after replacing obvious placeholders.</li>
+<li>Treat dashboards, manifests, and workflow files as production code once people rely on them.</li>
+</ul>
+</section>
+<section>
+<h2>Failure Modes We Learned To Recognize</h2>
+<h3>Wrong name</h3>
+<p>The most ordinary failures came from mismatched names: image repository, namespace, service selector, branch, workflow file, or dashboard variable.</p>
+<h3>Wrong permission</h3>
+<p>Automation failed when a token could read but not write, push but not pull, or access staging but not production.</p>
+<h3>Wrong version</h3>
+<p>A deployment looked successful while the cluster still ran an old image tag or an image tag that had been overwritten.</p>
+<h3>Wrong assumption</h3>
+<p>A command that worked locally failed in CI because the runner had a different shell, path, network, or credential context.</p>
+<h3>Missing feedback</h3>
+<p>Without logs, status commands, metrics, or dashboards, the system gave no quick answer about what changed.</p>
+<h3>Manual drift</h3>
+<p>Manual cluster edits solved a momentary problem but made the GitOps source of truth inaccurate.</p>
+</section>
+<section>
+<h2>Interview Drill Questions</h2>
+<ul>
+<li>What problem does GitHub Actions solve in this pipeline?</li>
+<li>What artifact or state does GitHub Actions produce?</li>
+<li>Which tool consumes the output of GitHub Actions next?</li>
+<li>What is the most likely beginner mistake with GitHub Actions?</li>
+<li>How would you prove GitHub Actions worked without guessing?</li>
+<li>How would you roll back a bad change involving GitHub Actions?</li>
+<li>What should be memorized versus looked up for GitHub Actions?</li>
+<li>Which security boundary matters most for GitHub Actions?</li>
+<li>How would you explain GitHub Actions to someone who only knows basic Linux?</li>
+<li>What metric, log, status, or command would you check first during an incident?</li>
+</ul>
+</section>
+<section>
+<h2>Glossary For This Stage</h2>
+<h3>Artifact</h3>
+<p>A build output or configuration object that can be handed to another stage.</p>
+<h3>Desired state</h3>
+<p>The state declared in Git or YAML that controllers try to make real.</p>
+<h3>Reconciliation</h3>
+<p>The loop where a tool compares desired state with actual state and fixes differences.</p>
+<h3>Immutable version</h3>
+<p>A version reference that should never change meaning after publication.</p>
+<h3>Rollback</h3>
+<p>A controlled return to a previously known working state.</p>
+<h3>Drift</h3>
+<p>A difference between what Git says should exist and what is actually running.</p>
+<h3>Health</h3>
+<p>A status signal that says whether the service is ready and operating correctly.</p>
+<h3>Traceability</h3>
+<p>The ability to connect a running system back to a commit, workflow run, image, and manifest change.</p>
+</section>
+<section>
+<h2>Practical Runbook</h2>
+<h3>Confirm source</h3>
+<p>Identify the exact repository, branch, commit, file path, or dashboard connected to GitHub Actions.</p>
+<h3>Confirm identity</h3>
+<p>Check the account, token, kube context, registry namespace, or runner label before assuming the tool is broken.</p>
+<h3>Confirm version</h3>
+<p>Write down the version or tag you expected and compare it with the version the platform reports.</p>
+<h3>Confirm status</h3>
+<p>Use the native status command or UI first; it usually tells you whether the failure is configuration, permission, or runtime.</p>
+<h3>Confirm logs</h3>
+<p>Logs explain what happened after the tool accepted the configuration but the process still failed.</p>
+<h3>Confirm network</h3>
+<p>Many CI/CD failures are actually DNS, registry, cluster, firewall, or service discovery failures.</p>
+<h3>Confirm ownership</h3>
+<p>Know whether the application team, platform team, security team, or repository owner controls the failing setting.</p>
+<h3>Confirm rollback</h3>
+<p>Before changing more things, decide whether the quickest safe move is to revert, resync, rebuild, or redeploy.</p>
+<h3>Confirm documentation</h3>
+<p>After fixing the issue, add the command, symptom, and fix to the project notes so the next run is faster.</p>
+<h3>Confirm automation</h3>
+<p>If the GitHub Actions step is repeated manually more than twice, turn it into a workflow, manifest, script, or checklist.</p>
+</section>
+<section>
+<h2>Verification Checklist</h2>
+<ul>
+<li>Can I point to the exact Git commit connected to this GitHub Actions change?</li>
+<li>Can I explain what changed in one sentence?</li>
+<li>Can I prove the change worked with a command or status screen?</li>
+<li>Can I identify the next tool that consumes this output?</li>
+<li>Can I identify the secret, token, or permission that would break this step?</li>
+<li>Can I roll back without manually editing production state?</li>
+<li>Can I tell whether the failure is build-time, deploy-time, or runtime?</li>
+<li>Can I show the relevant logs or metrics?</li>
+<li>Can I repeat the setup on a fresh machine or cluster?</li>
+<li>Can I teach this stage without reading every command from the page?</li>
+</ul>
+</section>
+<div class="footer-nav">
+<a href="kubernetes.html">&larr; Kubernetes</a>
+<a href="github-runners.html">GitHub Runners &rarr;</a>
+</div>
+</main>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ArgoCD | DevOps Learning Portal</title>
+
+  <!-- Favicons -->
+  <link href="img/apple-touch-icon.png" rel="apple-touch-icon">
+  
+  <!-- Google Fonts -->
+  <link href="img/favicon.png" rel="icon">
+  <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,500,700" rel="stylesheet">
+
+  <!-- Bootstrap CSS File -->
+  <link href="lib/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Libraries CSS Files -->
+  <link href="lib/font-awesome/css/font-awesome.min.css" rel="stylesheet">
+
+  <!-- Main Stylesheet File -->
+  <link href="css/style.css" rel="stylesheet">
+
+
+
+</head>
+<body>
+
+  <div class="navbar navbar-inverse navbar-static-top">
+    <div class="container">
+      <div class="navbar-header">
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="index.html">Manideep Tangallapally</a>
+      </div>
+      <div class="navbar-collapse collapse">
+        <ul class="nav navbar-nav navbar-right">
+          <li><a href="work.html">Work</a></li>
+          <li><a href="about.html">About</a></li>
+          <li><a href="blog.html">Blog</a></li>
+          <li><a href="contact.html">Contact</a></li>
+          <li><a href="learning.html">Learning</a></li>
+        </ul>
+      </div>
+      <!--/.nav-collapse -->
+    </div>
+  </div>
+
+<div class="site-shell">
+<aside class="sidebar">
+<div class="brand"><strong>DevOps Learning Portal</strong><span>CI/CD + GitOps + Monitoring</span></div>
+<nav class="nav">
+<a class="home" href="index.html">Home</a>
+<a href="git.html">Git and GitHub</a>
+<a href="docker.html">Docker</a>
+<a href="kubernetes.html">Kubernetes</a>
+<a href="github-actions.html">GitHub Actions</a>
+<a href="github-runners.html">GitHub Runners</a>
+<a class="active" href="argocd.html">ArgoCD</a>
+<a href="prometheus.html">Prometheus</a>
+<a href="grafana.html">Grafana</a>
+</nav>
+</aside>
+<div class="content">
+<header class="hero">
+<h1>ArgoCD</h1>
+<p>The GitOps controller that deploys what Git declares.</p>
+</header>
+<main>
+<section>
+<h2>How This Fits Our End-to-End Pipeline</h2>
+<p>ArgoCD is documented here as part of one connected build, not as an isolated tutorial. The goal is to explain how code moved from a developer laptop into a monitored Kubernetes service.</p>
+<pre><code>Developer laptop
+  | git add / commit / push
+  v
+GitHub repository
+  | pull request + branch rules
+  v
+GitHub Actions workflow
+  | test -&gt; docker build -&gt; tag -&gt; push
+  v
+Docker Hub image registry
+  | immutable image tag
+  v
+GitOps manifests repository/path
+  | ArgoCD watches desired state
+  v
+Kubernetes cluster
+  | app pods + services + ingress
+  v
+Prometheus scrapes metrics -&gt; Grafana dashboards</code></pre>
+</section>
+<section>
+<h2>Theory</h2>
+<p>ArgoCD is a GitOps controller for Kubernetes. It watches Git repositories, compares the desired manifests with the live cluster, reports drift, and syncs changes into Kubernetes.</p>
+<p>Our pipeline uses ArgoCD as the deployment engine. GitHub Actions builds and pushes the image, then updates the manifest tag. ArgoCD notices the Git change and applies it to the cluster.</p>
+</section>
+<section>
+<h2>GitOps Diagram</h2>
+<pre><code>Git repository path: k8s/staging
+        |
+        | ArgoCD watches branch + path
+        v
+ArgoCD Application
+        |
+        | compare desired vs live
+        v
+Kubernetes API
+        |
+        | create/update resources
+        v
+Pods, Services, ConfigMaps, Secrets, Ingress</code></pre>
+</section>
+<section>
+<h2>Application Manifest</h2>
+<pre><code>apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: devops-demo-staging
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/&lt;user&gt;/&lt;repo&gt;.git
+    targetRevision: main
+    path: k8s/staging
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true</code></pre>
+</section>
+<section>
+<h2>Step-by-step Implementation</h2>
+<ol>
+<li>Install ArgoCD into an <code>argocd</code> namespace.</li>
+<li>Create a Kubernetes manifests folder such as <code>k8s/staging</code>.</li>
+<li>Create an ArgoCD Application that points to the repository path.</li>
+<li>Let GitHub Actions update image tags in that path after a successful build.</li>
+<li>Use the ArgoCD UI or CLI to watch sync status, health, and drift.</li>
+</ol>
+</section>
+<section>
+<h2>Commands</h2>
+<h3>Install ArgoCD</h3>
+<pre><code>kubectl create namespace argocd
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml</code></pre>
+<p>Installs ArgoCD controllers and API server into the cluster.</p>
+<h3>Port forward UI</h3>
+<pre><code>kubectl port-forward svc/argocd-server -n argocd 8080:443</code></pre>
+<p>Exposes the ArgoCD UI locally for learning setups.</p>
+<h3>Apply application</h3>
+<pre><code>kubectl apply -f argocd/application.yaml</code></pre>
+<p>Registers the app that ArgoCD should manage.</p>
+<h3>Check status</h3>
+<pre><code>argocd app get devops-demo-staging
+argocd app sync devops-demo-staging</code></pre>
+<p>Shows and manually syncs application state when using the CLI.</p>
+</section>
+<section>
+<h2>Drift Example</h2>
+<p>If someone manually edits a Deployment with <code>kubectl edit</code>, ArgoCD can show the app as OutOfSync because live state no longer matches Git. With self-heal enabled, ArgoCD restores the Git version.</p>
+</section>
+<section>
+<h2>Promotion Model</h2>
+<ul>
+<li>Staging auto-syncs from <code>main</code>.</li>
+<li>Production syncs from a release branch or tagged manifest update.</li>
+<li>Promotion is a Git change, not an SSH session.</li>
+</ul>
+</section>
+<section>
+<h2>Interview Notes</h2>
+<ul>
+<li>GitOps means Git is the desired-state source, while controllers reconcile the live system to match it.</li>
+<li>ArgoCD detects drift when the cluster differs from Git.</li>
+<li>Self-heal restores live state to Git; prune removes resources no longer defined in Git.</li>
+<li>ArgoCD sync is pull-based from the cluster perspective, which reduces the need to give CI direct cluster credentials.</li>
+<li>Application, Project, Repository, Cluster, Sync, Health, and Drift are key ArgoCD terms.</li>
+</ul>
+</section>
+<section>
+<h2>FAQs</h2>
+<h3>Does ArgoCD build Docker images?</h3>
+<p>No. It deploys Kubernetes manifests. Image building belongs in CI, such as GitHub Actions.</p>
+<h3>Should auto-sync be enabled?</h3>
+<p>For staging, usually yes. For production, teams may require manual approval or progressive delivery.</p>
+<h3>What is OutOfSync?</h3>
+<p>The desired state in Git and the live state in Kubernetes do not match.</p>
+</section>
+<section>
+<h2>Memorize vs Look-up</h2>
+<div class="card-grid">
+<div class="card"><h3>Memorize</h3>
+<ul>
+<li>GitOps desired state model.</li>
+<li>OutOfSync, Synced, Healthy, Degraded meanings.</li>
+<li>Prune removes old resources; self-heal repairs drift.</li>
+</ul>
+</div>
+<div class="card"><h3>Look Up</h3>
+<ul>
+<li>All ArgoCD RBAC policy syntax.</li>
+<li>SSO connector configuration.</li>
+<li>Advanced sync waves and hooks.</li>
+</ul>
+</div>
+</div>
+</section>
+<section>
+<h2>Project Implementation Journal</h2>
+<h3>Baseline</h3>
+<p>We first made sure the application or configuration worked before introducing ArgoCD. A broken baseline makes every later automation failure harder to understand.</p>
+<h3>Local proof</h3>
+<p>We validated the ArgoCD workflow locally where possible, because local feedback is faster than waiting for CI or a cluster reconciliation loop.</p>
+<h3>Repository proof</h3>
+<p>We committed the ArgoCD change as a reviewable unit so the reason for the pipeline change was visible in Git history.</p>
+<h3>Automation handoff</h3>
+<p>We connected ArgoCD to the next tool in the chain instead of treating it as a standalone exercise.</p>
+<h3>Failure check</h3>
+<p>We intentionally inspected the common failure signals for ArgoCD: logs, status output, permissions, names, tags, and configuration paths.</p>
+<h3>Rollback thinking</h3>
+<p>We asked how to return to the previous working state if the ArgoCD change caused a bad deployment.</p>
+<h3>Interview compression</h3>
+<p>We reduced ArgoCD into a few sentences that explain purpose, implementation, and failure modes clearly.</p>
+<h3>Operations note</h3>
+<p>We documented what someone should check the day after the deployment, not only what to run during setup.</p>
+</section>
+<section>
+<h2>Decision Records</h2>
+<ul>
+<li>Keep ArgoCD configuration in Git where it can be reviewed.</li>
+<li>Prefer explicit names over clever names: repository, image, namespace, workflow, and application names should be searchable.</li>
+<li>Use immutable versions for anything that can be deployed or rolled back.</li>
+<li>Put secrets in the platform secret store, not in code, documentation screenshots, or shell history.</li>
+<li>Automate only after the manual path is understood.</li>
+<li>Make the happy path visible, then document the first five things to check when it fails.</li>
+<li>Separate staging and production concerns before the project becomes too large.</li>
+<li>Choose boring defaults unless there is a real operational reason to customize.</li>
+<li>Write commands so they can be pasted into a terminal after replacing obvious placeholders.</li>
+<li>Treat dashboards, manifests, and workflow files as production code once people rely on them.</li>
+</ul>
+</section>
+<section>
+<h2>Failure Modes We Learned To Recognize</h2>
+<h3>Wrong name</h3>
+<p>The most ordinary failures came from mismatched names: image repository, namespace, service selector, branch, workflow file, or dashboard variable.</p>
+<h3>Wrong permission</h3>
+<p>Automation failed when a token could read but not write, push but not pull, or access staging but not production.</p>
+<h3>Wrong version</h3>
+<p>A deployment looked successful while the cluster still ran an old image tag or an image tag that had been overwritten.</p>
+<h3>Wrong assumption</h3>
+<p>A command that worked locally failed in CI because the runner had a different shell, path, network, or credential context.</p>
+<h3>Missing feedback</h3>
+<p>Without logs, status commands, metrics, or dashboards, the system gave no quick answer about what changed.</p>
+<h3>Manual drift</h3>
+<p>Manual cluster edits solved a momentary problem but made the GitOps source of truth inaccurate.</p>
+</section>
+<section>
+<h2>Interview Drill Questions</h2>
+<ul>
+<li>What problem does ArgoCD solve in this pipeline?</li>
+<li>What artifact or state does ArgoCD produce?</li>
+<li>Which tool consumes the output of ArgoCD next?</li>
+<li>What is the most likely beginner mistake with ArgoCD?</li>
+<li>How would you prove ArgoCD worked without guessing?</li>
+<li>How would you roll back a bad change involving ArgoCD?</li>
+<li>What should be memorized versus looked up for ArgoCD?</li>
+<li>Which security boundary matters most for ArgoCD?</li>
+<li>How would you explain ArgoCD to someone who only knows basic Linux?</li>
+<li>What metric, log, status, or command would you check first during an incident?</li>
+</ul>
+</section>
+<section>
+<h2>Glossary For This Stage</h2>
+<h3>Artifact</h3>
+<p>A build output or configuration object that can be handed to another stage.</p>
+<h3>Desired state</h3>
+<p>The state declared in Git or YAML that controllers try to make real.</p>
+<h3>Reconciliation</h3>
+<p>The loop where a tool compares desired state with actual state and fixes differences.</p>
+<h3>Immutable version</h3>
+<p>A version reference that should never change meaning after publication.</p>
+<h3>Rollback</h3>
+<p>A controlled return to a previously known working state.</p>
+<h3>Drift</h3>
+<p>A difference between what Git says should exist and what is actually running.</p>
+<h3>Health</h3>
+<p>A status signal that says whether the service is ready and operating correctly.</p>
+<h3>Traceability</h3>
+<p>The ability to connect a running system back to a commit, workflow run, image, and manifest change.</p>
+</section>
+<section>
+<h2>Practical Runbook</h2>
+<h3>Confirm source</h3>
+<p>Identify the exact repository, branch, commit, file path, or dashboard connected to ArgoCD.</p>
+<h3>Confirm identity</h3>
+<p>Check the account, token, kube context, registry namespace, or runner label before assuming the tool is broken.</p>
+<h3>Confirm version</h3>
+<p>Write down the version or tag you expected and compare it with the version the platform reports.</p>
+<h3>Confirm status</h3>
+<p>Use the native status command or UI first; it usually tells you whether the failure is configuration, permission, or runtime.</p>
+<h3>Confirm logs</h3>
+<p>Logs explain what happened after the tool accepted the configuration but the process still failed.</p>
+<h3>Confirm network</h3>
+<p>Many CI/CD failures are actually DNS, registry, cluster, firewall, or service discovery failures.</p>
+<h3>Confirm ownership</h3>
+<p>Know whether the application team, platform team, security team, or repository owner controls the failing setting.</p>
+<h3>Confirm rollback</h3>
+<p>Before changing more things, decide whether the quickest safe move is to revert, resync, rebuild, or redeploy.</p>
+<h3>Confirm documentation</h3>
+<p>After fixing the issue, add the command, symptom, and fix to the project notes so the next run is faster.</p>
+<h3>Confirm automation</h3>
+<p>If the ArgoCD step is repeated manually more than twice, turn it into a workflow, manifest, script, or checklist.</p>
+</section>
+<section>
+<h2>Verification Checklist</h2>
+<ul>
+<li>Can I point to the exact Git commit connected to this ArgoCD change?</li>
+<li>Can I explain what changed in one sentence?</li>
+<li>Can I prove the change worked with a command or status screen?</li>
+<li>Can I identify the next tool that consumes this output?</li>
+<li>Can I identify the secret, token, or permission that would break this step?</li>
+<li>Can I roll back without manually editing production state?</li>
+<li>Can I tell whether the failure is build-time, deploy-time, or runtime?</li>
+<li>Can I show the relevant logs or metrics?</li>
+<li>Can I repeat the setup on a fresh machine or cluster?</li>
+<li>Can I teach this stage without reading every command from the page?</li>
+</ul>
+</section>
+<div class="footer-nav">
+<a href="github-runners.html">&larr; GitHub Runners</a>
+<a href="prometheus.html">Prometheus &rarr;</a>
+</div>
+</main>
+</div>
+</div>
+</body>
+</html>

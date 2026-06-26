@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Grafana | DevOps Learning Portal</title>
+  
+  <!-- Favicons -->
+  <link href="img/apple-touch-icon.png" rel="apple-touch-icon">
+  
+  <!-- Google Fonts -->
+  <link href="img/favicon.png" rel="icon">
+  <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,500,700" rel="stylesheet">
+
+  <!-- Bootstrap CSS File -->
+  <link href="lib/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Libraries CSS Files -->
+  <link href="lib/font-awesome/css/font-awesome.min.css" rel="stylesheet">
+
+  <!-- Main Stylesheet File -->
+  <link href="css/style.css" rel="stylesheet">
+
+
+
+</head>
+<body>
+
+  <div class="navbar navbar-inverse navbar-static-top">
+    <div class="container">
+      <div class="navbar-header">
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="index.html">Manideep Tangallapally</a>
+      </div>
+      <div class="navbar-collapse collapse">
+        <ul class="nav navbar-nav navbar-right">
+          <li><a href="work.html">Work</a></li>
+          <li><a href="about.html">About</a></li>
+          <li><a href="blog.html">Blog</a></li>
+          <li><a href="contact.html">Contact</a></li>
+          <li><a href="learning.html">Learning</a></li>
+        </ul>
+      </div>
+      <!--/.nav-collapse -->
+    </div>
+  </div>
+
+<div class="site-shell">
+<aside class="sidebar">
+<div class="brand"><strong>DevOps Learning Portal</strong><span>CI/CD + GitOps + Monitoring</span></div>
+<nav class="nav">
+<a class="home" href="index.html">Home</a>
+<a href="git.html">Git and GitHub</a>
+<a href="docker.html">Docker</a>
+<a href="kubernetes.html">Kubernetes</a>
+<a href="github-actions.html">GitHub Actions</a>
+<a href="github-runners.html">GitHub Runners</a>
+<a href="argocd.html">ArgoCD</a>
+<a href="prometheus.html">Prometheus</a>
+<a class="active" href="grafana.html">Grafana</a>
+<a href="project.html">Projects</a>
+</nav>
+</aside>
+<div class="content">
+<header class="hero">
+<h1>Grafana</h1>
+<p>Operational dashboards for the CI/CD and Kubernetes system.</p>
+</header>
+<main>
+<section>
+<h2>How This Fits Our End-to-End Pipeline</h2>
+<p>Grafana is documented here as part of one connected build, not as an isolated tutorial. The goal is to explain how code moved from a developer laptop into a monitored Kubernetes service.</p>
+<pre><code>Developer laptop
+  | git add / commit / push
+  v
+GitHub repository
+  | pull request + branch rules
+  v
+GitHub Actions workflow
+  | test -&gt; docker build -&gt; tag -&gt; push
+  v
+Docker Hub image registry
+  | immutable image tag
+  v
+GitOps manifests repository/path
+  | ArgoCD watches desired state
+  v
+Kubernetes cluster
+  | app pods + services + ingress
+  v
+Prometheus scrapes metrics -&gt; Grafana dashboards</code></pre>
+</section>
+<section>
+<h2>Theory</h2>
+<p>Grafana visualizes metrics from Prometheus and other data sources. It turns raw time series into dashboards, panels, alerts, and operating views that humans can understand during normal releases and incidents.</p>
+<p>In our project, Grafana is the final feedback loop: after GitHub Actions publishes an image and ArgoCD syncs Kubernetes, Grafana helps confirm whether the application is healthy.</p>
+</section>
+<section>
+<h2>Dashboard Flow</h2>
+<pre><code>Prometheus data source
+        |
+        v
+Grafana dashboard
+        |
+        +-- service health row
+        +-- deployment version panel
+        +-- request rate / error rate / latency
+        +-- CPU / memory / restarts
+        +-- Kubernetes namespace overview</code></pre>
+</section>
+<section>
+<h2>Implementation</h2>
+<ol>
+<li>Add Prometheus as a Grafana data source.</li>
+<li>Create a service dashboard for the app namespace and deployment.</li>
+<li>Add panels for uptime, request rate, errors, latency, CPU, memory, and restarts.</li>
+<li>Add variables for namespace, deployment, and pod so one dashboard can inspect multiple workloads.</li>
+<li>Save dashboard JSON in Git once the dashboard becomes part of the operating model.</li>
+</ol>
+</section>
+<section>
+<h2>Panel Examples</h2>
+<table>
+<thead><tr><th>Panel</th><th>Query idea</th><th>Why it matters</th></tr></thead>
+<tbody>
+<tr><td>Request rate</td><td><code>sum(rate(http_requests_total[5m]))</code></td><td>Shows traffic volume before and after deployment.</td></tr>
+<tr><td>Error rate</td><td><code>sum(rate(http_requests_total{status=~"5.."}[5m]))</code></td><td>Shows whether the release increased failures.</td></tr>
+<tr><td>Pod restarts</td><td><code>increase(kube_pod_container_status_restarts_total[15m])</code></td><td>Catches crash loops and unstable containers.</td></tr>
+<tr><td>Memory</td><td><code>container_memory_working_set_bytes</code></td><td>Helps detect leaks and capacity pressure.</td></tr>
+</tbody>
+</table>
+</section>
+<section>
+<h2>Release Review Dashboard</h2>
+<p>A useful release dashboard shows the deployed image version, request traffic, errors, latency, restarts, CPU, and memory in the same time window. That lets us compare system behavior before and after ArgoCD syncs a new image.</p>
+</section>
+<section>
+<h2>Dashboard Design Notes</h2>
+<ul>
+<li>Put the most important health signal at the top left because people scan dashboards under stress.</li>
+<li>Group app panels separately from cluster panels so ownership is clear.</li>
+<li>Use consistent time ranges when comparing before and after a deployment.</li>
+<li>Avoid dashboards that only look impressive; every panel should answer a real operational question.</li>
+</ul>
+</section>
+<section>
+<h2>Commands and Access</h2>
+<h3>Port forward Grafana</h3>
+<pre><code>kubectl port-forward svc/grafana 3000:80 -n monitoring</code></pre>
+<p>Opens Grafana locally in a learning cluster.</p>
+<h3>Check monitoring namespace</h3>
+<pre><code>kubectl get pods -n monitoring</code></pre>
+<p>Confirms Prometheus and Grafana are running.</p>
+<h3>Export dashboard</h3>
+<pre><code># Grafana UI -&gt; Dashboard settings -&gt; JSON model</code></pre>
+<p>Save useful dashboards in Git for repeatability.</p>
+</section>
+<section>
+<h2>Interview Notes</h2>
+<ul>
+<li>Grafana is a visualization and alerting layer; Prometheus is the metrics database in this setup.</li>
+<li>A data source connects Grafana to Prometheus, Loki, Tempo, cloud monitoring, or SQL stores.</li>
+<li>Dashboard variables make panels reusable across namespaces and services.</li>
+<li>Good dashboards support decisions; they are not just charts.</li>
+<li>Alert rules should include context and a runbook link when possible.</li>
+</ul>
+</section>
+<section>
+<h2>FAQs</h2>
+<h3>Can Grafana store metrics?</h3>
+<p>Grafana normally visualizes metrics from data sources. Grafana Cloud and related products can provide storage, but plain Grafana dashboards query external systems.</p>
+<h3>Should dashboards be committed to Git?</h3>
+<p>Yes when they are important to operations. Export JSON or use provisioning.</p>
+<h3>What should we check after deployment?</h3>
+<p>App availability, error rate, latency, pod restarts, CPU and memory, and whether the deployed image version matches the expected release.</p>
+</section>
+<section>
+<h2>Memorize vs Look-up</h2>
+<div class="card-grid">
+<div class="card"><h3>Memorize</h3>
+<ul>
+<li>Data source, dashboard, panel, variable, alert rule.</li>
+<li>Prometheus is queried with PromQL from Grafana panels.</li>
+<li>Dashboards should answer operational questions.</li>
+</ul>
+</div>
+<div class="card"><h3>Look Up</h3>
+<ul>
+<li>Exact panel JSON format.</li>
+<li>Provisioning file schemas.</li>
+<li>Plugin-specific visualization options.</li>
+</ul>
+</div>
+</div>
+</section>
+<section>
+<h2>Project Implementation Journal</h2>
+<h3>Baseline</h3>
+<p>We first made sure the application or configuration worked before introducing Grafana. A broken baseline makes every later automation failure harder to understand.</p>
+<h3>Local proof</h3>
+<p>We validated the Grafana workflow locally where possible, because local feedback is faster than waiting for CI or a cluster reconciliation loop.</p>
+<h3>Repository proof</h3>
+<p>We committed the Grafana change as a reviewable unit so the reason for the pipeline change was visible in Git history.</p>
+<h3>Automation handoff</h3>
+<p>We connected Grafana to the next tool in the chain instead of treating it as a standalone exercise.</p>
+<h3>Failure check</h3>
+<p>We intentionally inspected the common failure signals for Grafana: logs, status output, permissions, names, tags, and configuration paths.</p>
+<h3>Rollback thinking</h3>
+<p>We asked how to return to the previous working state if the Grafana change caused a bad deployment.</p>
+<h3>Interview compression</h3>
+<p>We reduced Grafana into a few sentences that explain purpose, implementation, and failure modes clearly.</p>
+<h3>Operations note</h3>
+<p>We documented what someone should check the day after the deployment, not only what to run during setup.</p>
+</section>
+<section>
+<h2>Decision Records</h2>
+<ul>
+<li>Keep Grafana configuration in Git where it can be reviewed.</li>
+<li>Prefer explicit names over clever names: repository, image, namespace, workflow, and application names should be searchable.</li>
+<li>Use immutable versions for anything that can be deployed or rolled back.</li>
+<li>Put secrets in the platform secret store, not in code, documentation screenshots, or shell history.</li>
+<li>Automate only after the manual path is understood.</li>
+<li>Make the happy path visible, then document the first five things to check when it fails.</li>
+<li>Separate staging and production concerns before the project becomes too large.</li>
+<li>Choose boring defaults unless there is a real operational reason to customize.</li>
+<li>Write commands so they can be pasted into a terminal after replacing obvious placeholders.</li>
+<li>Treat dashboards, manifests, and workflow files as production code once people rely on them.</li>
+</ul>
+</section>
+<section>
+<h2>Failure Modes We Learned To Recognize</h2>
+<h3>Wrong name</h3>
+<p>The most ordinary failures came from mismatched names: image repository, namespace, service selector, branch, workflow file, or dashboard variable.</p>
+<h3>Wrong permission</h3>
+<p>Automation failed when a token could read but not write, push but not pull, or access staging but not production.</p>
+<h3>Wrong version</h3>
+<p>A deployment looked successful while the cluster still ran an old image tag or an image tag that had been overwritten.</p>
+<h3>Wrong assumption</h3>
+<p>A command that worked locally failed in CI because the runner had a different shell, path, network, or credential context.</p>
+<h3>Missing feedback</h3>
+<p>Without logs, status commands, metrics, or dashboards, the system gave no quick answer about what changed.</p>
+<h3>Manual drift</h3>
+<p>Manual cluster edits solved a momentary problem but made the GitOps source of truth inaccurate.</p>
+</section>
+<section>
+<h2>Interview Drill Questions</h2>
+<ul>
+<li>What problem does Grafana solve in this pipeline?</li>
+<li>What artifact or state does Grafana produce?</li>
+<li>Which tool consumes the output of Grafana next?</li>
+<li>What is the most likely beginner mistake with Grafana?</li>
+<li>How would you prove Grafana worked without guessing?</li>
+<li>How would you roll back a bad change involving Grafana?</li>
+<li>What should be memorized versus looked up for Grafana?</li>
+<li>Which security boundary matters most for Grafana?</li>
+<li>How would you explain Grafana to someone who only knows basic Linux?</li>
+<li>What metric, log, status, or command would you check first during an incident?</li>
+</ul>
+</section>
+<section>
+<h2>Glossary For This Stage</h2>
+<h3>Artifact</h3>
+<p>A build output or configuration object that can be handed to another stage.</p>
+<h3>Desired state</h3>
+<p>The state declared in Git or YAML that controllers try to make real.</p>
+<h3>Reconciliation</h3>
+<p>The loop where a tool compares desired state with actual state and fixes differences.</p>
+<h3>Immutable version</h3>
+<p>A version reference that should never change meaning after publication.</p>
+<h3>Rollback</h3>
+<p>A controlled return to a previously known working state.</p>
+<h3>Drift</h3>
+<p>A difference between what Git says should exist and what is actually running.</p>
+<h3>Health</h3>
+<p>A status signal that says whether the service is ready and operating correctly.</p>
+<h3>Traceability</h3>
+<p>The ability to connect a running system back to a commit, workflow run, image, and manifest change.</p>
+</section>
+<section>
+<h2>Practical Runbook</h2>
+<h3>Confirm source</h3>
+<p>Identify the exact repository, branch, commit, file path, or dashboard connected to Grafana.</p>
+<h3>Confirm identity</h3>
+<p>Check the account, token, kube context, registry namespace, or runner label before assuming the tool is broken.</p>
+<h3>Confirm version</h3>
+<p>Write down the version or tag you expected and compare it with the version the platform reports.</p>
+<h3>Confirm status</h3>
+<p>Use the native status command or UI first; it usually tells you whether the failure is configuration, permission, or runtime.</p>
+<h3>Confirm logs</h3>
+<p>Logs explain what happened after the tool accepted the configuration but the process still failed.</p>
+<h3>Confirm network</h3>
+<p>Many CI/CD failures are actually DNS, registry, cluster, firewall, or service discovery failures.</p>
+<h3>Confirm ownership</h3>
+<p>Know whether the application team, platform team, security team, or repository owner controls the failing setting.</p>
+<h3>Confirm rollback</h3>
+<p>Before changing more things, decide whether the quickest safe move is to revert, resync, rebuild, or redeploy.</p>
+<h3>Confirm documentation</h3>
+<p>After fixing the issue, add the command, symptom, and fix to the project notes so the next run is faster.</p>
+<h3>Confirm automation</h3>
+<p>If the Grafana step is repeated manually more than twice, turn it into a workflow, manifest, script, or checklist.</p>
+</section>
+<section>
+<h2>Verification Checklist</h2>
+<ul>
+<li>Can I point to the exact Git commit connected to this Grafana change?</li>
+<li>Can I explain what changed in one sentence?</li>
+<li>Can I prove the change worked with a command or status screen?</li>
+<li>Can I identify the next tool that consumes this output?</li>
+<li>Can I identify the secret, token, or permission that would break this step?</li>
+<li>Can I roll back without manually editing production state?</li>
+<li>Can I tell whether the failure is build-time, deploy-time, or runtime?</li>
+<li>Can I show the relevant logs or metrics?</li>
+<li>Can I repeat the setup on a fresh machine or cluster?</li>
+<li>Can I teach this stage without reading every command from the page?</li>
+</ul>
+</section>
+<div class="footer-nav">
+<a href="prometheus.html">&larr; Prometheus</a>
+<span></span>
+</div>
+</main>
+</div>
+</div>
+</body>
+</html>

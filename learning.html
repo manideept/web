@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Manideep Tangallapally</title>
+  
+  <!-- Favicons -->
+  <link href="img/apple-touch-icon.png" rel="apple-touch-icon">
+  
+  <!-- Google Fonts -->
+  <link href="img/favicon.png" rel="icon">
+  <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,500,700" rel="stylesheet">
+
+  <!-- Bootstrap CSS File -->
+  <link href="lib/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Libraries CSS Files -->
+  <link href="lib/font-awesome/css/font-awesome.min.css" rel="stylesheet">
+
+  <!-- Main Stylesheet File -->
+  <link href="css/style.css" rel="stylesheet">
+
+
+
+</head>
+<body>
+
+  <div class="navbar navbar-inverse navbar-static-top">
+    <div class="container">
+      <div class="navbar-header">
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="index.html">Manideep Tangallapally</a>
+      </div>
+      <div class="navbar-collapse collapse">
+        <ul class="nav navbar-nav navbar-right">
+          <li><a href="work.html">Work</a></li>
+          <li><a href="about.html">About</a></li>
+          <li><a href="blog.html">Blog</a></li>
+          <li><a href="contact.html">Contact</a></li>
+          <li><a href="learning.html">Learning</a></li>
+        </ul>
+      </div>
+      <!--/.nav-collapse -->
+    </div>
+  </div>
+
+<div class="site-shell">
+<aside class="sidebar">
+<div class="brand"><strong>DevOps Learning Portal</strong><span>CI/CD + GitOps + Monitoring</span></div>
+<nav class="nav">
+<a class="home" href="index.html">Home</a>
+<a href="git.html">Git and GitHub</a>
+<a href="docker.html">Docker</a>
+<a href="kubernetes.html">Kubernetes</a>
+<a href="github-actions.html">GitHub Actions</a>
+<a href="github-runners.html">GitHub Runners</a>
+<a href="argocd.html">ArgoCD</a>
+<a href="prometheus.html">Prometheus</a>
+<a href="grafana.html">Grafana</a>
+</nav>
+</aside>
+<div class="content">
+<header class="hero">
+<h1>DevOps Learning Portal</h1>
+<p>A professional, project-based guide to building CI/CD, GitOps, and monitoring from scratch.</p>
+</header>
+<main>
+<section>
+<h2>What We Built</h2>
+<p>This portal documents a practical path from source code to a running Kubernetes application with GitOps delivery and monitoring. The pages are written like project notes: what each tool did in the pipeline, how we implemented it, what commands mattered, and what an interviewer expects you to understand.</p>
+<div class="callout good"><strong>End state:</strong> a developer pushes code, GitHub Actions builds and publishes a Docker image, Kubernetes manifests are updated, ArgoCD syncs the cluster, Prometheus scrapes metrics, and Grafana shows the health of the system.</div>
+<pre><code>Developer laptop
+  | git add / commit / push
+  v
+GitHub repository
+  | pull request + branch rules
+  v
+GitHub Actions workflow
+  | test -&gt; docker build -&gt; tag -&gt; push
+  v
+Docker Hub image registry
+  | immutable image tag
+  v
+GitOps manifests repository/path
+  | ArgoCD watches desired state
+  v
+Kubernetes cluster
+  | app pods + services + ingress
+  v
+Prometheus scrapes metrics -&gt; Grafana dashboards</code></pre>
+</section>
+<section>
+<h2>Learning Path</h2>
+<div class="card-grid">
+<article class="card"><h3><a href="git.html">Git and GitHub</a></h3><p>The source-control base for the entire delivery system.</p></article>
+<article class="card"><h3><a href="docker.html">Docker</a></h3><p>The container artifact that connects CI builds to Kubernetes runtime.</p></article>
+<article class="card"><h3><a href="kubernetes.html">Kubernetes</a></h3><p>The runtime platform where our container becomes a resilient service.</p></article>
+<article class="card"><h3><a href="github-actions.html">GitHub Actions</a></h3><p>Automation that turns repository events into tested, built, published artifacts.</p></article>
+<article class="card"><h3><a href="github-runners.html">GitHub Runners</a></h3><p>The execution machines behind GitHub Actions workflows.</p></article>
+<article class="card"><h3><a href="argocd.html">ArgoCD</a></h3><p>The GitOps controller that deploys what Git declares.</p></article>
+<article class="card"><h3><a href="prometheus.html">Prometheus</a></h3><p>Metrics collection for the app and cluster after deployment.</p></article>
+<article class="card"><h3><a href="grafana.html">Grafana</a></h3><p>Operational dashboards for the CI/CD and Kubernetes system.</p></article>
+</div>
+</section>
+<section>
+<h2>Project Assumptions</h2>
+<ul>
+<li>The application can be any web API or frontend service; the DevOps flow is the important part.</li>
+<li>GitHub is the source of truth for code and automation, while ArgoCD treats Git as the source of truth for Kubernetes desired state.</li>
+<li>Docker Hub is used as the image registry because it is simple to understand and works well for a first complete pipeline.</li>
+<li>Examples use realistic names such as <code>devops-demo</code>, <code>main</code>, <code>staging</code>, and <code>prod</code>. Replace them with your repository, namespace, and Docker Hub account.</li>
+</ul>
+</section>
+<section>
+<h2>Architecture</h2>
+<pre><code>+----------------+       +--------------------+       +----------------+
+| Developer      | push  | GitHub Repository  | event | GitHub Actions |
+| local machine  +------&gt;+ code + manifests   +------&gt;+ CI workflow    |
++----------------+       +---------+----------+       +-------+--------+
+                                     |                          |
+                                     | manifest update          | docker push
+                                     v                          v
+                              +------+-------+          +-------+--------+
+                              | ArgoCD       | watches  | Docker Hub     |
+                              | Application  +---------&gt;+ image registry |
+                              +------+-------+          +-------+--------+
+                                     |                          |
+                                     | sync                     | image pull
+                                     v                          v
+                              +------+--------------------------+--------+
+                              | Kubernetes cluster: deployments, services |
+                              +------+--------------------------+--------+
+                                     |
+                                     | scrape and visualize
+                                     v
+                              +------+----------+       +-------+--------+
+                              | Prometheus      +------&gt;+ Grafana        |
+                              +-----------------+       +----------------+</code></pre>
+</section>
+<section>
+<h2>How To Use These Pages</h2>
+<ol>
+<li>Read <a href="git.html">Git</a> first because every later tool depends on clean commits and branches.</li>
+<li>Move to <a href="docker.html">Docker</a> to package the app into a repeatable artifact.</li>
+<li>Use <a href="kubernetes.html">Kubernetes</a> to understand how that artifact runs in the cluster.</li>
+<li>Use GitHub Actions and Runners to automate the repeatable steps.</li>
+<li>Use ArgoCD, Prometheus, and Grafana to turn deployment into an observable operating model.</li>
+</ol>
+</section>
+<div class="footer-nav">
+<span></span>
+<a href="git.html">Git and GitHub &rarr;</a>
+</div>
+</main>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Git and GitHub | DevOps Learning Portal</title>
+
+  <!-- Favicons -->
+  <link href="img/apple-touch-icon.png" rel="apple-touch-icon">
+  
+  <!-- Google Fonts -->
+  <link href="img/favicon.png" rel="icon">
+  <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,500,700" rel="stylesheet">
+
+  <!-- Bootstrap CSS File -->
+  <link href="lib/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Libraries CSS Files -->
+  <link href="lib/font-awesome/css/font-awesome.min.css" rel="stylesheet">
+
+  <!-- Main Stylesheet File -->
+  <link href="css/style.css" rel="stylesheet">
+
+
+
+</head>
+<body>
+
+  <div class="navbar navbar-inverse navbar-static-top">
+    <div class="container">
+      <div class="navbar-header">
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="index.html">Manideep Tangallapally</a>
+      </div>
+      <div class="navbar-collapse collapse">
+        <ul class="nav navbar-nav navbar-right">
+          <li><a href="work.html">Work</a></li>
+          <li><a href="about.html">About</a></li>
+          <li><a href="blog.html">Blog</a></li>
+          <li><a href="contact.html">Contact</a></li>
+          <li><a href="learning.html">Learning</a></li>
+        </ul>
+      </div>
+      <!--/.nav-collapse -->
+    </div>
+  </div>
+
+<div class="site-shell">
+<aside class="sidebar">
+<div class="brand"><strong>DevOps Learning Portal</strong><span>CI/CD + GitOps + Monitoring</span></div>
+<nav class="nav">
+<a class="home" href="index.html">Home</a>
+<a class="active" href="git.html">Git and GitHub</a>
+<a href="docker.html">Docker</a>
+<a href="kubernetes.html">Kubernetes</a>
+<a href="github-actions.html">GitHub Actions</a>
+<a href="github-runners.html">GitHub Runners</a>
+<a href="argocd.html">ArgoCD</a>
+<a href="prometheus.html">Prometheus</a>
+<a href="grafana.html">Grafana</a>
+</nav>
+</aside>
+<div class="content">
+<header class="hero">
+<h1>Git and GitHub</h1>
+<p>The source-control base for the entire delivery system.</p>
+</header>
+<main>
+<section>
+<h2>How This Fits Our End-to-End Pipeline</h2>
+<p>Git and GitHub is documented here as part of one connected build, not as an isolated tutorial. The goal is to explain how code moved from a developer laptop into a monitored Kubernetes service.</p>
+<pre><code>Developer laptop
+  | git add / commit / push
+  v
+GitHub repository
+  | pull request + branch rules
+  v
+GitHub Actions workflow
+  | test -&gt; docker build -&gt; tag -&gt; push
+  v
+Docker Hub image registry
+  | immutable image tag
+  v
+GitOps manifests repository/path
+  | ArgoCD watches desired state
+  v
+Kubernetes cluster
+  | app pods + services + ingress
+  v
+Prometheus scrapes metrics -&gt; Grafana dashboards</code></pre>
+</section>
+<section>
+<h2>Theory</h2>
+<p>Git is the local version-control engine that records snapshots of the project. GitHub is the collaboration platform that hosts the repository, pull requests, branch protection, Actions workflows, issues, and release history.</p>
+<p>In our pipeline, Git was not only a place to save code. It became the audit log for delivery. Every Docker image, Kubernetes manifest change, and ArgoCD sync starts with a commit that explains why the system changed.</p>
+<table>
+<thead><tr><th>Concept</th><th>Meaning in our CI/CD project</th></tr></thead>
+<tbody>
+<tr><td>Repository</td><td>The complete history of application code, Dockerfile, workflow YAML, and Kubernetes manifests.</td></tr>
+<tr><td>Commit</td><td>A named checkpoint that can be tested, built, deployed, rolled back, and discussed.</td></tr>
+<tr><td>Branch</td><td>An isolated line of work such as <code>feature/dockerize-app</code> or <code>fix/k8s-probe</code>.</td></tr>
+<tr><td>Pull request</td><td>The review gate where CI runs before merging to <code>main</code>.</td></tr>
+<tr><td>Tag</td><td>A stable pointer used for releases, image versions, and rollback discussions.</td></tr>
+</tbody>
+</table>
+</section>
+<section>
+<h2>Architecture Diagram</h2>
+<pre><code>Working tree -&gt; Staging area -&gt; Local repository -&gt; GitHub remote
+    edit          git add        git commit        git push
+      ^              |               |                |
+      |              v               v                v
+    diff        selected files   immutable ID      PR / Actions / ArgoCD</code></pre>
+</section>
+<section>
+<h2>Step-by-step Implementation</h2>
+<ol>
+<li>Initialize the repository and make the first commit with a small, working application.</li>
+<li>Add a <code>.gitignore</code> so dependency folders, local secrets, and generated files do not enter history.</li>
+<li>Create a feature branch before adding Docker, Kubernetes, or CI changes.</li>
+<li>Open a pull request and let GitHub Actions prove the project still builds.</li>
+<li>Merge into <code>main</code> only after the commit history tells a useful story.</li>
+</ol>
+</section>
+<section>
+<h2>Commands</h2>
+<h3>Start a repository</h3>
+<pre><code>git init
+git status</code></pre>
+<p>Creates local Git metadata and shows what is tracked, modified, or untracked.</p>
+<h3>Stage and commit</h3>
+<pre><code>git add .
+git commit -m "Add initial app scaffold"</code></pre>
+<p>Stages selected files and records a snapshot.</p>
+<h3>Connect GitHub</h3>
+<pre><code>git remote add origin https://github.com/&lt;user&gt;/&lt;repo&gt;.git
+git branch -M main
+git push -u origin main</code></pre>
+<p>Connects local work to GitHub and publishes the main branch.</p>
+<h3>Create a feature branch</h3>
+<pre><code>git switch -c feature/dockerize-app</code></pre>
+<p>Keeps Docker work isolated until it is reviewed.</p>
+<h3>Inspect history</h3>
+<pre><code>git log --oneline --decorate --graph --all</code></pre>
+<p>Shows the shape of branches and merges, which is useful during release debugging.</p>
+<h3>Undo safely</h3>
+<pre><code>git restore app.py
+git restore --staged app.py</code></pre>
+<p>Discards working-tree changes or removes a file from staging without rewriting shared history.</p>
+<h3>Tag a release</h3>
+<pre><code>git tag v1.0.0
+git push origin v1.0.0</code></pre>
+<p>Creates a release marker that can match a Docker image tag.</p>
+</section>
+<section>
+<h2>GitHub Setup</h2>
+<ul>
+<li>Create a private or public GitHub repository depending on the sensitivity of the project.</li>
+<li>Add branch protection for <code>main</code>: require pull requests, require passing checks, and restrict force pushes.</li>
+<li>Store credentials as repository or organization secrets, never in files committed to Git.</li>
+<li>Use GitHub Environments for <code>staging</code> and <code>production</code> when approvals are needed.</li>
+</ul>
+<div class="callout warn"><strong>Project lesson:</strong> CI/CD becomes easier when <code>main</code> is always deployable. Treat broken main as a production incident, even while learning.</div>
+</section>
+<section>
+<h2>Lab Notes From The Pipeline</h2>
+<ul>
+<li>Commit small changes before switching tools.</li>
+<li>Write messages that explain intent, not only files changed.</li>
+<li>Prefer revert commits over history rewriting after code is shared.</li>
+<li>Use pull requests as quality gates even when working solo, because the habit transfers to teams.</li>
+</ul>
+</section>
+<section>
+<h2>Interview Notes</h2>
+<ul>
+<li>Explain Git as a distributed content-addressed database, not just a command-line tool.</li>
+<li>Know the difference between <code>merge</code> and <code>rebase</code>: merge preserves branch history; rebase rewrites local commits onto a new base.</li>
+<li>A pull request is a collaboration workflow in GitHub, not a Git primitive.</li>
+<li>Never rewrite public history unless the team has explicitly agreed, because other developers may have based work on it.</li>
+<li>Branch protection and required status checks are part of delivery safety, not bureaucracy.</li>
+</ul>
+</section>
+<section>
+<h2>FAQs</h2>
+<h3>Why do we commit Kubernetes YAML?</h3>
+<p>Because ArgoCD needs Git to describe the desired cluster state. If it is not in Git, it is hard to audit, review, or reproduce.</p>
+<h3>Should Docker image tags be committed?</h3>
+<p>For GitOps, yes. Updating the image tag in a manifest is the handoff from CI to CD.</p>
+<h3>Should secrets be committed if they are base64 encoded?</h3>
+<p>No. Kubernetes Secret values are encoded, not encrypted. Use sealed secrets, external secrets, or a managed secret store.</p>
+<h3>What is the safest rollback?</h3>
+<p>Revert the commit that changed the manifest or image tag, then let ArgoCD sync the previous desired state.</p>
+</section>
+<section>
+<h2>Memorize vs Look-up</h2>
+<div class="card-grid">
+<div class="card"><h3>Memorize</h3>
+<ul>
+<li><code>git status</code>, <code>add</code>, <code>commit</code>, <code>push</code>, <code>pull</code>, <code>switch</code>.</li>
+<li>The difference between working tree, staging area, local repo, and remote repo.</li>
+<li>The rule: secrets and generated dependency folders do not belong in Git.</li>
+</ul>
+</div>
+<div class="card"><h3>Look Up</h3>
+<ul>
+<li>Advanced rebase conflict flags and reflog recovery details.</li>
+<li>Exact branch protection UI labels, because GitHub changes the interface over time.</li>
+<li>Rare plumbing commands such as <code>cat-file</code> and <code>update-ref</code>.</li>
+</ul>
+</div>
+</div>
+</section>
+<section>
+<h2>Mini Checklist</h2>
+<ul>
+<li>Repository has a clear README.</li>
+<li><code>.gitignore</code> is present.</li>
+<li>Main branch is protected.</li>
+<li>CI checks run on pull requests.</li>
+<li>Release tags match deployable image versions.</li>
+</ul>
+</section>
+<section>
+<h2>Project Implementation Journal</h2>
+<h3>Baseline</h3>
+<p>We first made sure the application or configuration worked before introducing Git. A broken baseline makes every later automation failure harder to understand.</p>
+<h3>Local proof</h3>
+<p>We validated the Git workflow locally where possible, because local feedback is faster than waiting for CI or a cluster reconciliation loop.</p>
+<h3>Repository proof</h3>
+<p>We committed the Git change as a reviewable unit so the reason for the pipeline change was visible in Git history.</p>
+<h3>Automation handoff</h3>
+<p>We connected Git to the next tool in the chain instead of treating it as a standalone exercise.</p>
+<h3>Failure check</h3>
+<p>We intentionally inspected the common failure signals for Git: logs, status output, permissions, names, tags, and configuration paths.</p>
+<h3>Rollback thinking</h3>
+<p>We asked how to return to the previous working state if the Git change caused a bad deployment.</p>
+<h3>Interview compression</h3>
+<p>We reduced Git into a few sentences that explain purpose, implementation, and failure modes clearly.</p>
+<h3>Operations note</h3>
+<p>We documented what someone should check the day after the deployment, not only what to run during setup.</p>
+</section>
+<section>
+<h2>Decision Records</h2>
+<ul>
+<li>Keep Git configuration in Git where it can be reviewed.</li>
+<li>Prefer explicit names over clever names: repository, image, namespace, workflow, and application names should be searchable.</li>
+<li>Use immutable versions for anything that can be deployed or rolled back.</li>
+<li>Put secrets in the platform secret store, not in code, documentation screenshots, or shell history.</li>
+<li>Automate only after the manual path is understood.</li>
+<li>Make the happy path visible, then document the first five things to check when it fails.</li>
+<li>Separate staging and production concerns before the project becomes too large.</li>
+<li>Choose boring defaults unless there is a real operational reason to customize.</li>
+<li>Write commands so they can be pasted into a terminal after replacing obvious placeholders.</li>
+<li>Treat dashboards, manifests, and workflow files as production code once people rely on them.</li>
+</ul>
+</section>
+<section>
+<h2>Failure Modes We Learned To Recognize</h2>
+<h3>Wrong name</h3>
+<p>The most ordinary failures came from mismatched names: image repository, namespace, service selector, branch, workflow file, or dashboard variable.</p>
+<h3>Wrong permission</h3>
+<p>Automation failed when a token could read but not write, push but not pull, or access staging but not production.</p>
+<h3>Wrong version</h3>
+<p>A deployment looked successful while the cluster still ran an old image tag or an image tag that had been overwritten.</p>
+<h3>Wrong assumption</h3>
+<p>A command that worked locally failed in CI because the runner had a different shell, path, network, or credential context.</p>
+<h3>Missing feedback</h3>
+<p>Without logs, status commands, metrics, or dashboards, the system gave no quick answer about what changed.</p>
+<h3>Manual drift</h3>
+<p>Manual cluster edits solved a momentary problem but made the GitOps source of truth inaccurate.</p>
+</section>
+<section>
+<h2>Interview Drill Questions</h2>
+<ul>
+<li>What problem does Git solve in this pipeline?</li>
+<li>What artifact or state does Git produce?</li>
+<li>Which tool consumes the output of Git next?</li>
+<li>What is the most likely beginner mistake with Git?</li>
+<li>How would you prove Git worked without guessing?</li>
+<li>How would you roll back a bad change involving Git?</li>
+<li>What should be memorized versus looked up for Git?</li>
+<li>Which security boundary matters most for Git?</li>
+<li>How would you explain Git to someone who only knows basic Linux?</li>
+<li>What metric, log, status, or command would you check first during an incident?</li>
+</ul>
+</section>
+<section>
+<h2>Glossary For This Stage</h2>
+<h3>Artifact</h3>
+<p>A build output or configuration object that can be handed to another stage.</p>
+<h3>Desired state</h3>
+<p>The state declared in Git or YAML that controllers try to make real.</p>
+<h3>Reconciliation</h3>
+<p>The loop where a tool compares desired state with actual state and fixes differences.</p>
+<h3>Immutable version</h3>
+<p>A version reference that should never change meaning after publication.</p>
+<h3>Rollback</h3>
+<p>A controlled return to a previously known working state.</p>
+<h3>Drift</h3>
+<p>A difference between what Git says should exist and what is actually running.</p>
+<h3>Health</h3>
+<p>A status signal that says whether the service is ready and operating correctly.</p>
+<h3>Traceability</h3>
+<p>The ability to connect a running system back to a commit, workflow run, image, and manifest change.</p>
+</section>
+<section>
+<h2>Practical Runbook</h2>
+<h3>Confirm source</h3>
+<p>Identify the exact repository, branch, commit, file path, or dashboard connected to Git.</p>
+<h3>Confirm identity</h3>
+<p>Check the account, token, kube context, registry namespace, or runner label before assuming the tool is broken.</p>
+<h3>Confirm version</h3>
+<p>Write down the version or tag you expected and compare it with the version the platform reports.</p>
+<h3>Confirm status</h3>
+<p>Use the native status command or UI first; it usually tells you whether the failure is configuration, permission, or runtime.</p>
+<h3>Confirm logs</h3>
+<p>Logs explain what happened after the tool accepted the configuration but the process still failed.</p>
+<h3>Confirm network</h3>
+<p>Many CI/CD failures are actually DNS, registry, cluster, firewall, or service discovery failures.</p>
+<h3>Confirm ownership</h3>
+<p>Know whether the application team, platform team, security team, or repository owner controls the failing setting.</p>
+<h3>Confirm rollback</h3>
+<p>Before changing more things, decide whether the quickest safe move is to revert, resync, rebuild, or redeploy.</p>
+<h3>Confirm documentation</h3>
+<p>After fixing the issue, add the command, symptom, and fix to the project notes so the next run is faster.</p>
+<h3>Confirm automation</h3>
+<p>If the Git step is repeated manually more than twice, turn it into a workflow, manifest, script, or checklist.</p>
+</section>
+<section>
+<h2>Verification Checklist</h2>
+<ul>
+<li>Can I point to the exact Git commit connected to this Git change?</li>
+<li>Can I explain what changed in one sentence?</li>
+<li>Can I prove the change worked with a command or status screen?</li>
+<li>Can I identify the next tool that consumes this output?</li>
+<li>Can I identify the secret, token, or permission that would break this step?</li>
+<li>Can I roll back without manually editing production state?</li>
+<li>Can I tell whether the failure is build-time, deploy-time, or runtime?</li>
+<li>Can I show the relevant logs or metrics?</li>
+<li>Can I repeat the setup on a fresh machine or cluster?</li>
+<li>Can I teach this stage without reading every command from the page?</li>
+</ul>
+</section>
+<div class="footer-nav">
+<a href="index.html">&larr; DevOps Learning Portal</a>
+<a href="docker.html">Docker &rarr;</a>
+</div>
+</main>
+</div>
+</div>
+</body>
+</html>
